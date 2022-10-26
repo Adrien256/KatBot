@@ -8,5 +8,5 @@ jobs:
   hello:
     runs-on: ubuntu-latest
     steps:
-    - name: Run a one-line script
-      run: echo Hello, world!
+    - name: SSH Remote Commands
+      uses: appleboy/ssh-action@v0.1.4

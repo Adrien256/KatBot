@@ -1,9 +1,9 @@
 const dotenv = require('dotenv');
 const Discord = require('discord.js');
-const discordTTS = require('discord-tts');
 const { GatewayIntentBits, ActivityType, Partials } = require('discord.js');
-const {AudioPlayer, createAudioPlayer, createAudioResource, StreamType, entersState, VoiceConnectionStatus, joinVoiceChannel} = require("@discordjs/voice");
+const {AudioPlayer, VoiceConnectionStatus, joinVoiceChannel} = require("@discordjs/voice");
 const { Player } = require("discord-player");
+const functions = require('./functions');
 
 // loading environment variables
 dotenv.config();
@@ -54,35 +54,43 @@ KatBot.on("ready", () => {
     });
 });
 
+
 KatBot.on("messageCreate", async(message) => {
-    // attempts to reset disconnect timer
-    clearTimeout(timeoutID);
-    timeoutID = undefined;
+    // get sender ID
+    var senderID = message.author.id;
+    // if bot received !help command
+    if (message.content.startsWith("!help")){
+        functions.help(message);
+    }
+    // otherwise just play the message
     // make sure the message author is not KatBot
-    if (!message.author.bot){
+    else if (!message.author.bot){
     try{
-        // get and save message sender ID
-        var senderID = message.author.id;
-        
         // find channel ID
         KatBot.guilds.cache.get(myGuildID).members.fetch(senderID)
             .then((memberID) =>{
-                timeoutID = undefined;
                 // check if user is in a voice channel
                 myChannelID = memberID.voice.channelId;
                 if (myChannelID == null){
-                    memberID.send("KatBot needs you to be in a voice channel to play a message. Please join a voice channel and try again.");
+                    functions.memberCheck(memberID);
                 }
                 // check if message is too small
                 else if(message.content.length < 1){
-                    memberID.send("KatBot cannot play a message that short. Try a longer message (1+ letters).");
+                    memberID.send("KatBot cannot play a message that short. Try a longer message (1+ chars).");
+                }
+                // check if message is too long
+                else if(message.content.length > 200){
+                    memberID.send("KatBot cannot play a message that long. Try a smaller message (under 200 char). Your previous message had a length of " + message.content.length + " chars.");
                 }
                 // play tts into a channel
                 else{
-                    // joins a channel and plays the message
-                    const stream = discordTTS.getVoiceStream(message.content);
-                    const audioResource=createAudioResource(stream, {inputType: StreamType.Arbitrary, inlineVolume:true});
-
+                    // attempts to reset disconnect timer
+                    clearTimeout(timeoutID);
+                    timeoutID = undefined;
+                    // load the sound to be played into audioResource
+                    var audioResource;
+                    audioResource = functions.loadSound(message);
+ 
                     // join the channel
                     voiceConnection = joinVoiceChannel({
                         channelId: myChannelID,
@@ -90,8 +98,8 @@ KatBot.on("messageCreate", async(message) => {
                         adapterCreator: (KatBot.guilds.cache.get(myGuildID)).voiceAdapterCreator,
                     });
 
-                    // play the tts
-                    if(voiceConnection.status===VoiceConnectionStatus.Connected){
+                    // play the audioResource
+                    if(voiceConnection.status === VoiceConnectionStatus.Connected){
                         voiceConnection.subscribe(audioPlayer);
                         audioPlayer.play(audioResource);
                     } 
